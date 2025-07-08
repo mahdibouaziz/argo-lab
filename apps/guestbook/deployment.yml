@@ -4,7 +4,7 @@ metadata:
   name: guestbook-ui
   namespace: prod
   annotations:
-    notifications.argoproj.io/triggers.on-sync-succeeded: true
+    notifications.argoproj.io/triggers.on-sync-succeeded: "true"
 spec:
   replicas: 2
   revisionHistoryLimit: 3
