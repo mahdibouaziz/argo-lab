@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: guestbook-ui
   namespace: prod
-  annotations:
-    notifications.argoproj.io/triggers.on-sync-succeeded: "true"
 spec:
   replicas: 1
   revisionHistoryLimit: 3
