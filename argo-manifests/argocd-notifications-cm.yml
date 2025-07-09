@@ -1,0 +1,24 @@
+# argocd-notifications-cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.github: |
+    appID: $github-appID
+    installationID: $github-installationID
+    privateKey: $github-privateKey
+
+  trigger.on-sync-succeeded: |
+    - description: Sync succeeded
+      send:
+        - app-deployed
+      when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
+  template.app-deployed: >
+    message: |
+      Application {{.app.metadata.name}} is now running new version of deployments manifests.
+    github:
+      status:
+        state: success
+        label: "argo-cd/{{.app.metadata.name}}"
