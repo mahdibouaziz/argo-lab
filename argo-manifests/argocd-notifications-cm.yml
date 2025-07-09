@@ -9,6 +9,7 @@ data:
     appID: $github-appID
     installationID: $github-installationID
     privateKey: $github-privateKey
+    # apiURL: https://sgithub.mycompany.com/api/v3
 
   trigger.on-sync-succeeded: |
     - description: Sync succeeded
