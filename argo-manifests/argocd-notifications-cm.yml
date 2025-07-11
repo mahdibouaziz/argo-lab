@@ -1,25 +1,96 @@
-# argocd-notifications-cm.yaml
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
   namespace: argocd
 data:
+  context: |
+    argocdUrl: https://002a37c6b62a.ngrok-free.app
+
   service.github: |
     appID: $github-appID
     installationID: $github-installationID
     privateKey: $github-privateKey
-    # apiURL: https://sgithub.mycompany.com/api/v3
 
   trigger.on-sync-succeeded: |
-    - description: Sync succeeded
+    - when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
       send:
-        - app-deployed
-      when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
-  template.app-deployed: >
+        - github-app-deploy-notification
+
+  # Working Perfectly and tested
+  # template.github-app-deploy-notification: |
+  #   message: |
+  #     App {{.app.metadata.name}} deployed successfully.
+  #   github:
+  #     pullRequestComment:
+  #       content: |
+  #         ✅ **{{.app.metadata.name}}** has been deployed successfully!
+  #         🔗 [View in Argo CD](https://002a37c6b62a.ngrok-free.app/applications/{{.app.metadata.name}})
+
+  # Working perfectly and tested
+  # template.github-app-deploy-notification: >
+  #   message: |
+  #     Application {{.app.metadata.name}} is now running new version of deployments manifests.
+  #   github:
+  #     status:
+  #       state: success
+  #       label: "argo-cd/{{.app.metadata.name}}"
+
+  template.github-app-deploy-notification: |
     message: |
       Application {{.app.metadata.name}} is now running new version of deployments manifests.
     github:
       status:
         state: success
         label: "argo-cd/{{.app.metadata.name}}"
+      checkRun:
+        name: "continuous-delivery/{{.app.metadata.name}}"
+        details_url: "https://6fb99af6d16c.ngrok-free.app/applications/{{.app.metadata.name}}?operation=true"
+        status: completed
+        conclusion: success
+        started_at: "2025-07-11T10:44:52Z"
+        completed_at: "2025-07-11T10:46:52Z"
+        output:
+          title: "Deployment of {{.app.metadata.name}} on ArgoCD"
+          summary: "Application {{.app.metadata.name}} is now running new version of deployments manifests."
+          text: |
+            Application {{.app.metadata.name}} is now running new version of deployments manifests.
+            See more here: https://6fb99af6d16c.ngrok-free.app/applications/{{.app.metadata.name}}?operation=true
+
+
+
+# This is not working rright now
+  # template.github-app-deploy-notification: |
+  #   message: |
+  #     App {{.app.metadata.name}} deployed successfully.
+  #   github:
+  #     checkRun:
+  #       name: "continuous-delivery/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       status: in_progress
+  #       started_at: "2025-07-11T10:44:52Z"
+  #       completed_at: "2025-07-11T10:46:52Z"
+  #       conclusion: success
+  #       output:
+  #         title: "Deployment of {{.app.metadata.name}} on ArgoCD"
+  #         summary: "Application {{.app.metadata.name}} is now running new version of deployments manifests."
+  #         text: |
+  #           Application {{.app.metadata.name}} is now running new version of deployments manifests.
+  #           See more here: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true
+      
+
+  # template.github-app-deploy-notification: |
+  #   message: |
+  #     App {{.app.metadata.name}} deployed successfully.
+  #   github:
+
+  #     deployment:
+  #       state: success
+  #       environment: production
+  #       environmentURL: "https://{{.app.metadata.name}}.example.com"
+  #       logURL: "https://002a37c6b62a.ngrok-free.app/applications/{{.app.metadata.name}}"
+  #       reference: "{{.app.status.operationState.syncResult.revision}}"
+  #       autoMerge: false
+  #       transientEnvironment: false
+  #       requiredContexts: []
