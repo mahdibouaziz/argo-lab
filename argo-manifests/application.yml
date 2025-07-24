@@ -9,7 +9,8 @@ spec:
   project: prod
   source:
     repoURL: https://github.com/mahdibouaziz/argo-lab
-    targetRevision: main
+    # targetRevision: main
+    targetRevision: test-pr-comment
     path: apps/guestbook
   destination:
     server: https://kubernetes.default.svc

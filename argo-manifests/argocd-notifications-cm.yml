@@ -1,25 +1,28 @@
-# argocd-notifications-cm.yaml
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
   namespace: argocd
 data:
+  context: |
+    argocdUrl: https://238b32414a02.ngrok-free.app
+
   service.github: |
-    appID: $github-appID
-    installationID: $github-installationID
+    appID: 1555506
+    installationID: 74982098
     privateKey: $github-privateKey
-    # apiURL: https://sgithub.mycompany.com/api/v3
 
   trigger.on-sync-succeeded: |
-    - description: Sync succeeded
+    - when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
       send:
-        - app-deployed
-      when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
-  template.app-deployed: >
+        - github-app-deploy-notification
+
+  # Working Perfectly and tested
+  template.github-app-deploy-notification: |
     message: |
-      Application {{.app.metadata.name}} is now running new version of deployments manifests.
+      App {{.app.metadata.name}} deployed successfully.
     github:
-      status:
-        state: success
-        label: "argo-cd/{{.app.metadata.name}}"
+      pullRequestComment:
+        content: |
+          ✅ **{{.app.metadata.name}}** has been deployed successfully!
