@@ -1,25 +1,129 @@
-# argocd-notifications-cm.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
   namespace: argocd
 data:
+  context: |
+    argocdUrl: "https://30b3-176-144-228-200.ngrok-free.app"
+
   service.github: |
     appID: $github-appID
     installationID: $github-installationID
     privateKey: $github-privateKey
 
+  # trigger.on-sync-succeeded: |
+  #   - description: Sync operation succeeded and revision present
+  #     when: app.status.operationState.phase in ['Succeeded'] && app.status.health.status == 'Healthy' && app.status.operationState.syncResult.revision != ''
+  #     oncePer: app.status.operationState.syncResult.revision
+  #     send:
+  #       - app-deployed
+
   trigger.on-sync-succeeded: |
-    - description: Sync succeeded
+    - description: Sync operation succeeded and revision present
+      when: app.status != nil &&
+            app.status.operationState != nil &&
+            app.status.operationState.phase in ['Succeeded'] &&
+            app.status.health != nil &&
+            app.status.health.status == 'Healthy' &&
+            app.status.operationState.syncResult != nil &&
+            app.status.operationState.syncResult.revision != ''
+      oncePer: app.status.operationState.syncResult.revision
       send:
         - app-deployed
-      when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
 
-  template.app-deployed: >
+  # usecase 1 - Happy path: completed + conclusion + timestamps (succeed)
+  # template.app-deployed: |
+  #   message: "Completed run"
+  #   github:
+  #     repoURLPath: "{{.app.spec.source.repoURL}}"
+  #     revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+  #     checkRun:
+  #       name: "cd/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       status: completed
+  #       conclusion: success
+  #       started_at: "{{.app.status.operationState.startedAt}}"
+  #       completed_at: "{{.app.status.operationState.finishedAt}}"
+
+
+  # usecase 2 - In-progress only (no conclusion, no completed_at; succeed, check remain in progress)
+  # template.app-deployed: |
+  #   message: "In progress run"
+  #   github:
+  #     repoURLPath: "{{.app.spec.source.repoURL}}"
+  #     revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+  #     checkRun:
+  #       name: "cd/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       status: in_progress
+  #       # no conclusion, no completed_at
+  #       started_at: "{{.app.status.operationState.startedAt}}"
+
+  # usecase 3 - Missing conclusion with completed status (should FAIL with “conclusion is required”)
+  # template.app-deployed: |
+  #   message: "Should fail: missing conclusion"
+  #   github:
+  #     repoURLPath: "{{.app.spec.source.repoURL}}"
+  #     revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+  #     checkRun:
+  #       name: "cd/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       status: completed
+  #       # conclusion: ""   # intentionally omitted
+  #       started_at: "{{.app.status.operationState.startedAt}}"
+  #       completed_at: "{{.app.status.operationState.finishedAt}}"
+
+  # usecase 4 - Completed_at present but conclusion missing (should FAIL for same reason)
+  # template.app-deployed: |
+  #   message: "Should fail: completed_at without conclusion"
+  #   github:
+  #     repoURLPath: "{{.app.spec.source.repoURL}}"
+  #     revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+  #     checkRun:
+  #       name: "cd/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       status: in_progress
+  #       # no conclusion
+  #       started_at: "{{.app.status.operationState.startedAt}}"
+  #       completed_at: "{{.app.status.operationState.finishedAt}}"
+
+  # Conclusion provided, status left empty (code will coerce to completed; succeed)
+  # template.app-deployed: |
+  #   message: "Conclusion only; status auto-completes"
+  #   github:
+  #     repoURLPath: "{{.app.spec.source.repoURL}}"
+  #     revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+  #     checkRun:
+  #       name: "cd/{{.app.metadata.name}}"
+  #       details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+  #       conclusion: success
+  #       started_at: "{{.app.status.operationState.startedAt}}"
+  #       completed_at: "{{.app.status.operationState.finishedAt}}"
+
+  # complete use case with status example
+  template.app-deployed: |
     message: |
-      Application {{.app.metadata.name}} is now running new version of deployments manifests.
+      Application {{.app.metadata.name}} is now running new version of deployment manifests.
     github:
+      repoURLPath: "{{.app.spec.source.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+
       status:
         state: success
-        label: "argo-cd/{{.app.metadata.name}}"
+        label: "continuous-delivery/{{.app.metadata.name}}"
+        targetURL: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+        
+      checkRun:
+        name: "continuous-delivery/{{.app.metadata.name}}"
+        details_url: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true"
+        status: completed
+        conclusion: success
+        started_at: "{{.app.status.operationState.startedAt}}"
+        completed_at: "{{.app.status.operationState.finishedAt}}"
+        output:
+          title: "Deployment of {{.app.metadata.name}} on ArgoCD"
+          summary: "Application {{.app.metadata.name}} is now running new version of deployments manifests."
+          text: |
+            Application {{.app.metadata.name}} is now running new version of deployments manifests.
+            See more here: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true
